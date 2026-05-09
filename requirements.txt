@@ -3,7 +3,7 @@ torch==2.2.0+cpu
 torchvision==0.17.0+cpu
 numpy<2.0.0
 protobuf==3.20.*
-sentencepiece  <-- YE LINE ADD KARO
+sentencepiece
 fastapi
 uvicorn
 transformers==4.38.0

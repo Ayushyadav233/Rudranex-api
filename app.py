@@ -7,16 +7,17 @@ import uvicorn
 
 app = FastAPI()
 
-# Memory optimization: Load light-weight model and standard python tokenizer
-print("Initializing Rudranex-API with TrOCR-Small...")
+# Explicitly load to CPU to avoid "meta device" errors
+print("Initializing Rudranex-API...")
 processor = TrOCRProcessor.from_pretrained('microsoft/trocr-small-handwritten', use_fast=False)
-model = VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-small-handwritten', low_cpu_mem_usage=True)
+model = VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-small-handwritten')
+model.to("cpu") # Pakka kar lo ki CPU par hi rahe
 model.eval()
-print("Backend Ready!")
+print("Backend Ready and Live on CPU!")
 
 @app.get("/")
 async def health():
-    return {"status": "online", "model": "trocr-small-handwritten"}
+    return {"status": "online", "model": "trocr-small"}
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
@@ -24,7 +25,11 @@ async def predict(file: UploadFile = File(...)):
         image_data = await file.read()
         image = Image.open(io.BytesIO(image_data)).convert("RGB")
         
+        # Preprocessing
         pixel_values = processor(images=image, return_tensors="pt").pixel_values
+        
+        # Force pixel_values to CPU just in case
+        pixel_values = pixel_values.to("cpu")
         
         with torch.no_grad():
             generated_ids = model.generate(pixel_values)
@@ -32,6 +37,8 @@ async def predict(file: UploadFile = File(...)):
         
         return {"text": generated_text}
     except Exception as e:
+        # Full error print karo taaki humein detail mile agar fir bhi fail ho
+        print(f"Prediction Error: {str(e)}")
         return {"error": str(e)}
 
 if __name__ == "__main__":

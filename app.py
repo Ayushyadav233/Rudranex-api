@@ -7,40 +7,24 @@ import uvicorn
 
 app = FastAPI()
 
-# Shuruat mein inhen None rakhenge
-processor = None
-model = None
+# Model loading logic (Small version for Render RAM limits)
+# microsoft/trocr-small-handwritten use kar rahe hain jo 10x light hai
+processor = TrOCRProcessor.from_pretrained('microsoft/trocr-small-handwritten')
+model = VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-small-handwritten')
 
 @app.get("/")
 async def health():
-    # Ye page turant khulega, Hugging Face ko lagega server healthy hai
-    return {
-        "status": "online", 
-        "model_loaded": model is not None,
-        "message": "Rudranex API is running. Model will load on first request."
-    }
+    return {"status": "online", "model": "trocr-small"}
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    global processor, model
-    
-    # Check agar model loaded nahi hai toh pehli request par load karo
-    if model is None:
-        print("Lazy Loading starting... Model is heavy, please wait.")
-        processor = TrOCRProcessor.from_pretrained('microsoft/trocr-base-handwritten', use_fast=True)
-        model = VisionEncoderDecoderModel.from_pretrained(
-            'microsoft/trocr-base-handwritten',
-            low_cpu_mem_usage=True
-        )
-        model.eval()
-        print("Model Loaded successfully on first request!")
-
     try:
         image_data = await file.read()
         image = Image.open(io.BytesIO(image_data)).convert("RGB")
         
+        pixel_values = processor(images=image, return_tensors="pt").pixel_values
+        
         with torch.no_grad():
-            pixel_values = processor(images=image, return_tensors="pt").pixel_values
             generated_ids = model.generate(pixel_values)
             generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
         

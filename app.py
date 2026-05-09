@@ -7,14 +7,16 @@ import uvicorn
 
 app = FastAPI()
 
-# Model loading logic (Small version for Render RAM limits)
-# microsoft/trocr-small-handwritten use kar rahe hain jo 10x light hai
-processor = TrOCRProcessor.from_pretrained('microsoft/trocr-small-handwritten')
-model = VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-small-handwritten')
+# Memory optimization: Load light-weight model and standard python tokenizer
+print("Initializing Rudranex-API with TrOCR-Small...")
+processor = TrOCRProcessor.from_pretrained('microsoft/trocr-small-handwritten', use_fast=False)
+model = VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-small-handwritten', low_cpu_mem_usage=True)
+model.eval()
+print("Backend Ready!")
 
 @app.get("/")
 async def health():
-    return {"status": "online", "model": "trocr-small"}
+    return {"status": "online", "model": "trocr-small-handwritten"}
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
